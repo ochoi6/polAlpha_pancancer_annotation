@@ -1,5 +1,7 @@
 # Pan-cancer and cell-type specific characterization of polymerase alpha using bulk and single-cell RNA-seq profiling 
 
+Polymerase alpha (Pol α) is essential for DNA replication and repair, but its functional roles across various cancer types and cellular contexts remain incompletely defined. In this study, we utilize both bulk and single-cell RNA sequencing (scRNA-seq) data to systematically investigate the function of Pol α across a wide spectrum of cancers. Our analysis includes RNA-seq data from The Cancer Genome Atlas (TCGA), covering 33 distinct cancer types, and scRNA-seq data from 20 clinical tumor tissue datasets. We will curate, integrate, and perform comprehensive quality control of these datasets, employing sophisticated batch correction techniques to address technical variability. This integrated pan-cancer and cell-type-specific analysis aims to provide novel insights into the diverse roles of Pol α in cancer biology, potentially revealing new therapeutic targets or biomarkers.
+
 
 ## Data access
 
@@ -68,8 +70,29 @@ In R, we will use the packages ggplot2 (v.3.3.5), ggpubr (v.0.6.0), and ggrepel 
 
 Analyses for bulk RNA-seq will be conducted using R (version 4.3.1). 
 
-In R, we will use the survminer package (v.0.4.9) to evaluate log-rank or Cox statistics and visualize using Kaplan–Meier survival curves. Also, 
+In R, we will use the survminer package (v.0.4.9) to evaluate log-rank or Cox statistics and visualize using Kaplan–Meier survival curves. Also, further downstream analysis will be performed using DESeq2 (v.1.44.0) to retrieve differentially expressed genes and GO-terms. 
 
 
-## Data processing 
+## Data processing proposal 
+
+We will first download all the datasets and intially work on the processing the sc-RNA seq raw data. 
+
+1. Downloading all datasets (both sc-RNA and bulk-RNA seq) from their respective locations and uploading onto the cluster. 
+
+2. Running quality control and pre-processing for the 20 scRNA-seq datasets. 
+
+    - We will use the Scanpy package (version 1.9.5) to perform quality control filtering and integration of the datasets. 
+    - Initial filtering criteria will be: (1) confirmation that information was available for all 9 Y signature genes, (2) cells had greater than 200 detected genes and (3) the mitochondrial gene counts were below 20%
+    - Second quality filtering criteria will be: (1) remove barcodes that fall into any of the following categories -  (a) possible debris with too few genes expressed (<400) and too few UMIs (<800) + (b) possibility of duplicate cells based on genes expressed (>5500) or UMIs (>5000)
+    - Count matrices and AnnData objects will be then combined using a concatenate function, and raw counts will be saved for each cell to facilitate further analysis. 
+    - Final quality filtering will be removing non-tumor cells and normalizing the counts to log transcripts per million (TPM) units using the “sc.pp.normalize_total” function, followed by log transformation using the “sc.pp.log1p” function.
+
+
+3. Combining and batch effect correction on the processed and filtered 20 scRNA-seq datasets.  
+
+    - We will use the scVI Python package (scvi-tools; v.1.0.4) to batch correct and the scVI model will be trained on the scRNA-seq data to consider samples as covariates.
+    - If multiple batches are present, the corrected data will be integrated together. 
+    - To assess if batch correction was done properly, we will examine the reduction in batch-specific variation in terms of signal presence. 
+
+4. Downstream analysis (such as clustering, differential expression analysis, or trajectory inference) and visualization (such as 2D UMAP plots, illustrating cell types, batches, datasets, gender, organs, and cancer types) on the filtered and batch-correced 20 scRNA-seq datasets will be performed. 
 
