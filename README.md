@@ -52,7 +52,8 @@ Transcriptome data of 346 tumor samples from 251 individuals across 20 scRNA-seq
 
 ### Bulk RNA-seq 
 
-Bulk The Cancer Genome Atlas (TCGA) project (https://portal.gdc.cancer.gov/). 
+Bulk RNA-seq was downloaded from The Cancer Genome Atlas (TCGA) project for processed Data Sets (https://portal.gdc.cancer.gov/, https://labs.icahn.mssm.edu/minervalab/resources/data-ark/tcga/). 
+
 
 
 ## Software 
@@ -61,7 +62,7 @@ Bulk The Cancer Genome Atlas (TCGA) project (https://portal.gdc.cancer.gov/).
 
 Analyses for single-cell RNA seq will be conducted using R (version 4.3.1) and Python (version 3.10.9). 
 
-In Python, we will use the packages such as Scanpy (v.1.9.5), Pandas (v.2.0.0), Conda (v.4.11.0), NumPy (v.1.24.2), and Scipy (v.1.10.1) for data analysis.
+In Python, we will use the packages such as Scanpy (v.1.9.5), Pandas (v.2.0.0), Conda (v.4.11.0), NumPy (v.1.24.2), Scipy (v.1.10.1), and scVI Python package (scvi-tools; v.1.0.4) for data analysis.
 
 In R, we will use the packages ggplot2 (v.3.3.5), ggpubr (v.0.6.0), and ggrepel (v.0.9.2), and ComplexHeatmap (v.2.11.1) for data visualization. 
 
