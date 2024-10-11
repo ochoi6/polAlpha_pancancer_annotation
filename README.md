@@ -52,7 +52,7 @@ Transcriptome data of 346 tumor samples from 251 individuals across 20 scRNA-seq
 
 ### Bulk RNA-seq 
 
-Bulk RNA-seq was downloaded from The Cancer Genome Atlas (TCGA) project for processed Data Sets (https://portal.gdc.cancer.gov/, https://labs.icahn.mssm.edu/minervalab/resources/data-ark/tcga/). 
+Bulk RNA-seq was downloaded from The Cancer Genome Atlas (TCGA) project for processed data sets (https://portal.gdc.cancer.gov/, https://labs.icahn.mssm.edu/minervalab/resources/data-ark/tcga/). 
 
 
 
