@@ -1,0 +1,119 @@
+---
+title: "Xingyu script_R"
+output: html_document
+date: "2024-12-15"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+
+library(ggplot2)
+library(data.table)
+library(survival)
+library(ComplexHeatmap)
+library(forestplot)
+library(survminer)
+library(circlize)
+
+Sys.setenv(LANGUAGE = "en") # Display error messages in English
+options(stringsAsFactors = FALSE) # Prevent automatic conversion of characters to factors
+
+# Load tumor annotation file
+rawAnno <- read.delim("merged_sample_quality_annotations.tsv", sep = "\t", row.names = NULL, check.names = FALSE, stringsAsFactors = FALSE, header = TRUE)
+rawAnno$simple_barcode <- substr(rawAnno$aliquot_barcode, 1, 15)
+samAnno <- rawAnno[!duplicated(rawAnno$simple_barcode), c("cancer type", "simple_barcode")]
+samAnno <- samAnno[which(samAnno$`cancer type` != ""), ]
+write.table(samAnno, "output_simple_sample_annotation.txt", sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
+
+# Load survival data
+surv <- read.delim("/Users/chenx6/Downloads/Survival_SupplementalTable_S1_20171025_xena_sp", sep = "\t", row.names = 1, check.names = FALSE, stringsAsFactors = FALSE, header = TRUE)
+
+### Begin analysis
+Interestingsets <- c("POLD1","POLD2","POLD3","POLD4")
+
+for (geneOfInterest in Interestingsets) {
+  
+  load("/Users/chenx6/Desktop/TCGA_pancancer_expr_just_male_with_signatures.rdata")
+  
+  # Extract the subset of expression profiles for the gene of interest
+  expr.sub <- expr[geneOfInterest, ]
+  expr.sub <- as.data.frame(t(na.omit(t(expr.sub)))) # Remove rows with missing values
+  keepSam <- colnames(expr.sub) # Extract retained samples
+  expr <- expr[geneOfInterest, keepSam] # Reconstruct expression matrix
+  
+  # Identify tumor samples and corresponding cancer types
+  sam <- samAnno[which(samAnno$`cancer type` != "LAML"), "simple_barcode"] # Exclude leukemia samples
+  comsam <- intersect(intersect(colnames(expr), sam), rownames(surv)) # Common samples between expression and survival data
+  tumsam <- comsam[substr(comsam, 14, 14) == "0"] # Extract tumor samples only
+  tumAnno <- samAnno[which(samAnno$simple_barcode %in% tumsam), ] # Get annotations for these tumor samples
+  tumAnno <- tumAnno[order(tumAnno$`cancer type`), ] # Sort by cancer type
+  tumors <- intersect(unique(tumAnno$`cancer type`),
+                      c("ACC", "BLCA", "COAD", "DLBC", "ESCA", "GBM", "HNSC", "KIRC", "KIRP", "LAML", "LGG", "LIHC", "LUAD", "LUSC", "MESO", "PAAD", "PCPG", "PRAD", "READ", "SARC", "SKCM", "STAD", "TGCT", "THCA", "THYM", "UVM"))
+  
+  # Combine expression and survival data
+  exprSurv <- cbind.data.frame(expr = as.numeric(expr[geneOfInterest, comsam]),
+                               surv[comsam, c("OS", "OS.time", "DSS", "DSS.time", "DFI", "DFI.time", "PFI", "PFI.time")])
+  write.table(exprSurv, paste0(geneOfInterest, "_output_combined_dataframe_with_signature_and_survival.txt"), sep = "\t", row.names = TRUE, col.names = NA, quote = FALSE)
+  
+  # KM analysis based on the optimal cutoff for the gene of interest
+  minprop <- 0.2
+  outTab.km <- NULL
+  
+  for (i in tumors) {
+    sam <- tumAnno[which(tumAnno$`cancer type` == i), "simple_barcode"]
+    exprSurvSub <- exprSurv[sam, ]
+    exprSurvSub$OS.time <- exprSurvSub$OS.time / 365 # Convert OS time to years
+    
+    # Perform survival analysis for OS
+    bestcut <- surv_cutpoint(exprSurvSub, 
+                             time = "OS.time", 
+                             event = "OS", 
+                             variables = "expr", 
+                             minprop = minprop) # Minimum proportion for groups
+    cutoff <- bestcut$cutpoint[1, 1]
+    exprSurvSub$group <- factor(ifelse(exprSurvSub$expr > cutoff, "High", "Low"), levels = c("Low", "High"))
+    fitd <- survdiff(Surv(OS.time, OS) ~ group, data = exprSurvSub, na.action = na.exclude)
+    p.val <- 1 - pchisq(fitd$chisq, length(fitd$n) - 1)
+    HR <- (fitd$obs[2] / fitd$exp[2]) / (fitd$obs[1] / fitd$exp[1])
+    upper <- exp(log(HR) + qnorm(0.975) * sqrt(1 / fitd$exp[2] + 1 / fitd$exp[1]))
+    lower <- exp(log(HR) - qnorm(0.975) * sqrt(1 / fitd$exp[2] + 1 / fitd$exp[1]))
+    outTab.km <- rbind.data.frame(outTab.km,
+                                  data.frame(tumor = i, 
+                                             event = "OS", 
+                                             hr = HR, 
+                                             lower = lower, 
+                                             upper = upper, 
+                                             p = p.val, 
+                                             stringsAsFactors = FALSE),
+                                  stringsAsFactors = FALSE)
+    
+    # Plot KM curve for OS
+    HR2 <- paste("Hazard Ratio = ", round(HR, 2), sep = "")
+    CI <- paste("95% CI: ", paste(round(lower, 2), round(upper, 2), sep = " - "), sep = "")
+    
+    fit <- survfit(Surv(OS.time, OS) ~ group, data = exprSurvSub)
+    ggsurvplot(fit, data = exprSurvSub,
+               conf.int = FALSE, 
+               censor = FALSE, 
+               palette = c("#1f77b4", "#d62728"), 
+               legend.title = paste(geneOfInterest, " ", i, "_OS"),
+               font.legend = 11,
+               pval = paste(ifelse(p.val < 0.001, "p < 0.001", paste("p = ", round(p.val, 3), sep = "")),
+                            HR2, CI, sep = "\n"))
+    
+    ggsave(paste0(geneOfInterest, "_", i, "_OS.pdf"), width = 4, height = 4)
+    
+    # Repeat the analysis for DSS, DFI, and PFI (similar steps as above)
+    # ...
+  }
+  
+  write.table(outTab.km, file = paste0(geneOfInterest, "_output_summary_of_km_result.txt"), sep = "\t", row.names = TRUE, col.names = TRUE, quote = FALSE)
+  save(outTab.km, file = paste0(geneOfInterest, "_output_summary_of_km_result.rdata"))
+}
+
+```
+
